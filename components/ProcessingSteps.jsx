@@ -4,8 +4,8 @@ import { CheckCircle2, Loader2, Circle, AlertCircle } from 'lucide-react';
 
 const STEPS = [
   { key: 'upload', label: 'Upload', hint: 'Sending your audio' },
-  { key: 'transcribe', label: 'Transcribe', hint: 'OpenAI Whisper' },
-  { key: 'summarize', label: 'Summarize', hint: 'OpenAI GPT' },
+  { key: 'transcribe', label: 'Transcribe', hint: 'Google Gemini' },
+  { key: 'summarize', label: 'Summarize', hint: 'Google Gemini' },
 ];
 
 const ORDER = { idle: -1, upload: 0, transcribe: 1, summarize: 2, done: 3 };

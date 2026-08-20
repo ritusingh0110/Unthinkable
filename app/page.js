@@ -95,7 +95,7 @@ function App() {
             <span className="font-semibold tracking-tight text-sm sm:text-base">Meeting Summarizer</span>
           </div>
           <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Whisper + GPT</span>
+            <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Gemini</span>
             <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-primary" /> Server-side keys</span>
           </div>
         </div>
@@ -123,7 +123,7 @@ function App() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Powered by OpenAI Whisper + GPT</span>
+              <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Powered by Google Gemini</span>
               <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-primary" /> API key stays on the server</span>
               <span className="inline-flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-primary" /> Structured JSON output</span>
             </div>
@@ -204,8 +204,8 @@ function App() {
         </div>
 
         <footer className="mt-16 pt-6 border-t text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>Audio → Whisper (ASR) → Transcript → GPT (structured JSON) → UI</div>
-          <div>Built with Next.js · Tailwind · OpenAI</div>
+          <div>Audio → Gemini (ASR) → Transcript → Gemini (structured JSON) → UI</div>
+          <div>Built with Next.js · Tailwind · Google Gemini</div>
         </footer>
       </main>
     </div>

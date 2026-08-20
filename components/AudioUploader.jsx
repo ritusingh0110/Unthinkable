@@ -40,7 +40,7 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
       return;
     }
     if (f.size > MAX_BYTES) {
-      setError('File is too large. Max size is 25MB (OpenAI Whisper limit).');
+      setError('File is too large. Max size is 25MB.');
       return;
     }
     setFile(f);
