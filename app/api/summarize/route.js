@@ -1,20 +1,28 @@
 import { NextResponse } from 'next/server';
-import { summarizeTranscript } from '@/lib/openai';
+import { summarizeTranscript } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-const MAX_TRANSCRIPT_CHARS = 120000; // Roughly ~30k tokens, safe for gpt-4o-mini 128k context
+const MAX_TRANSCRIPT_CHARS = 120000; // Comfortable within gemini-2.5-flash context budget
 
-function mapOpenAIError(err) {
-  const raw = err?.message || '';
+function mapGeminiError(err) {
+  const raw = String(err?.message || err || '');
   const status = err?.status;
-  if (status === 401) return { code: 401, msg: 'OpenAI rejected the API key. Please verify OPENAI_API_KEY.' };
-  if (status === 429 || /quota|rate limit|billing/i.test(raw)) {
-    return { code: 429, msg: 'OpenAI quota or rate limit reached. Please check your plan/billing and try again.' };
+  const code = err?.code;
+
+  if (code === 'TIMEOUT' || /timed out/i.test(raw)) {
+    return { code: 504, msg: 'Summarization timed out. Please try again.' };
   }
-  if (/invalid JSON/i.test(raw)) return { code: 502, msg: 'The AI returned an unexpected response. Please try again.' };
-  if (status === 504 || /timed out/i.test(raw)) return { code: 504, msg: 'Summarization timed out. Please try again.' };
+  if (status === 401 || status === 403 || /API key|permission|unauthorized/i.test(raw)) {
+    return { code: 401, msg: 'Gemini rejected the API key. Please verify GEMINI_API_KEY.' };
+  }
+  if (status === 429 || /quota|rate limit|resource_exhausted|RESOURCE_EXHAUSTED/i.test(raw)) {
+    return { code: 429, msg: 'Gemini quota or rate limit reached. Please try again in a moment.' };
+  }
+  if (/invalid JSON|empty response/i.test(raw)) {
+    return { code: 502, msg: 'The AI returned an unexpected response. Please try again.' };
+  }
   return { code: 502, msg: 'Unable to generate the summary. Please try again.' };
 }
 
@@ -43,12 +51,15 @@ export async function POST(request) {
   } catch (err) {
     if (err && err.code === 'MISSING_API_KEY') {
       return NextResponse.json(
-        { error: 'Server is missing the OPENAI_API_KEY environment variable. Please configure it and restart the server.' },
+        {
+          error:
+            'Server is missing the GEMINI_API_KEY environment variable. Please configure it and restart the server.',
+        },
         { status: 500 }
       );
     }
     console.error('[/api/summarize] error:', err?.status, err?.message || err);
-    const mapped = mapOpenAIError(err);
+    const mapped = mapGeminiError(err);
     return NextResponse.json({ error: mapped.msg }, { status: mapped.code });
   }
 }

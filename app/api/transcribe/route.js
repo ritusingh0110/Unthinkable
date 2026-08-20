@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { transcribeAudio } from '@/lib/openai';
+import { transcribeAudio } from '@/lib/gemini';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-const MAX_BYTES = 25 * 1024 * 1024; // OpenAI Whisper limit is 25MB
+const MAX_BYTES = 25 * 1024 * 1024;
 const ALLOWED_MIME_PREFIX = 'audio/';
 const ALLOWED_EXTS = ['mp3', 'wav', 'm4a', 'mp4', 'mpeg', 'mpga', 'webm', 'ogg', 'flac'];
 
@@ -13,16 +13,29 @@ function extOf(name = '') {
   return m ? m[1] : '';
 }
 
-function mapOpenAIError(err) {
-  const raw = err?.message || '';
+function mapGeminiError(err) {
+  const raw = String(err?.message || err || '');
   const status = err?.status;
-  if (status === 401) return { code: 401, msg: 'OpenAI rejected the API key. Please verify OPENAI_API_KEY.' };
-  if (status === 429 || /quota|rate limit|billing/i.test(raw)) {
-    return { code: 429, msg: 'OpenAI quota or rate limit reached. Please check your plan/billing and try again.' };
+  const code = err?.code;
+
+  if (code === 'TIMEOUT' || /timed out/i.test(raw)) {
+    return { code: 504, msg: 'Transcription timed out. Please try a shorter recording.' };
   }
-  if (status === 413 || /too large/i.test(raw)) return { code: 413, msg: 'Audio file is too large for the transcription API.' };
-  if (status === 415 || /unsupported/i.test(raw)) return { code: 415, msg: 'Unsupported audio format.' };
-  if (status === 504 || /timed out/i.test(raw)) return { code: 504, msg: 'Transcription timed out. Please try a shorter recording.' };
+  if (status === 400 && /empty/i.test(raw)) {
+    return { code: 400, msg: 'The uploaded audio file is empty.' };
+  }
+  if (status === 401 || status === 403 || /API key|permission|unauthorized/i.test(raw)) {
+    return { code: 401, msg: 'Gemini rejected the API key. Please verify GEMINI_API_KEY.' };
+  }
+  if (status === 429 || /quota|rate limit|resource_exhausted|RESOURCE_EXHAUSTED/i.test(raw)) {
+    return { code: 429, msg: 'Gemini quota or rate limit reached. Please try again in a moment.' };
+  }
+  if (status === 413 || /too large/i.test(raw)) {
+    return { code: 413, msg: 'Audio file is too large.' };
+  }
+  if (/UNSUPPORTED|unsupported|invalid_argument|INVALID_ARGUMENT/i.test(raw)) {
+    return { code: 415, msg: 'Gemini could not process this audio format. Please try MP3 or WAV.' };
+  }
   return { code: 502, msg: 'Unable to transcribe the audio. Please try again in a moment.' };
 }
 
@@ -38,10 +51,7 @@ export async function POST(request) {
 
     const file = formData.get('file');
     if (!file || typeof file === 'string') {
-      return NextResponse.json(
-        { error: 'No audio file provided.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No audio file provided.' }, { status: 400 });
     }
 
     const filename = file.name || 'audio';
@@ -59,7 +69,11 @@ export async function POST(request) {
       );
     }
 
-    const looksAudio = type.startsWith(ALLOWED_MIME_PREFIX) || ALLOWED_EXTS.includes(ext) || type === 'video/mp4' || type === 'video/webm';
+    const looksAudio =
+      type.startsWith(ALLOWED_MIME_PREFIX) ||
+      ALLOWED_EXTS.includes(ext) ||
+      type === 'video/mp4' ||
+      type === 'video/webm';
     if (!looksAudio) {
       return NextResponse.json(
         { error: `Unsupported file type. Allowed: ${ALLOWED_EXTS.join(', ')}.` },
@@ -80,13 +94,16 @@ export async function POST(request) {
   } catch (err) {
     if (err && err.code === 'MISSING_API_KEY') {
       return NextResponse.json(
-        { error: 'Server is missing the OPENAI_API_KEY environment variable. Please configure it and restart the server.' },
+        {
+          error:
+            'Server is missing the GEMINI_API_KEY environment variable. Please configure it and restart the server.',
+        },
         { status: 500 }
       );
     }
-    // Log server-side (never log the key or full stack to users)
+    // Log server-side without leaking the key.
     console.error('[/api/transcribe] error:', err?.status, err?.message || err);
-    const mapped = mapOpenAIError(err);
+    const mapped = mapGeminiError(err);
     return NextResponse.json({ error: mapped.msg }, { status: mapped.code });
   }
 }
