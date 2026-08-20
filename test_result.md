@@ -147,6 +147,17 @@ backend:
           exceeded, the endpoint correctly returns HTTP 429 with clear quota message instead
           of masking it as a generic 500 error. This proves the bug fix is working as designed.
           Server logs confirm: "OpenAI transcription failed (429): You exceeded your current quota"
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ POST-UI-POLISH RE-VERIFICATION PASSED (4/4 tests):
+          - No multipart/no file → 400 "Invalid form data. Please upload an audio file." ✓
+          - Empty file (0 bytes) → 400 "The uploaded file is empty." ✓
+          - Text file (note.txt, text/plain) → 415 "Unsupported file type..." ✓
+          - Valid audio (test.mp3, 1KB) → 429 "OpenAI quota or rate limit reached..." ✓
+          
+          NO REGRESSIONS after UI/CSS polish pass. All validation paths still working correctly.
+          OpenAI state: KEY_QUOTA_EXCEEDED (same as previous test). mapOpenAIError still functioning properly.
 
   - task: "POST /api/summarize validation and GPT structured output"
     implemented: true
@@ -189,6 +200,18 @@ backend:
           exceeded, the endpoint correctly returns HTTP 429 with clear quota message instead
           of masking it as a generic 500 error. This proves the bug fix is working as designed.
           Server logs confirm: "OpenAI summarization failed (429): You exceeded your current quota"
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ POST-UI-POLISH RE-VERIFICATION PASSED (5/5 tests):
+          - Non-JSON body → 400 "Invalid JSON body." ✓
+          - Empty object {} → 400 "Transcript is required." ✓
+          - Whitespace transcript "   " → 400 "Transcript is required." ✓
+          - Valid transcript → 429 "OpenAI quota or rate limit reached..." ✓
+          - Too long transcript (121k chars) → 413 "Transcript is too long..." ✓
+          
+          NO REGRESSIONS after UI/CSS polish pass. All validation paths still working correctly.
+          OpenAI state: KEY_QUOTA_EXCEEDED (same as previous test). mapOpenAIError still functioning properly.
 
   - task: "Server-side OpenAI key handling"
     implemented: true
@@ -221,6 +244,14 @@ backend:
           
           Security is properly implemented. API key is never exposed to clients.
           All error messages are user-friendly without revealing internal implementation details.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ POST-UI-POLISH RE-VERIFICATION PASSED (2/2 security tests):
+          - No "sk-" pattern found in any response (no API key leakage) ✓
+          - No Node.js stack traces ("at " lines, filepaths) in any response ✓
+          
+          NO REGRESSIONS after UI/CSS polish pass. Security still properly implemented.
 
 frontend:
   - task: "Upload UI + results rendering"
@@ -255,13 +286,37 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      Bug fix pass. User reported UI stuck on "Transcribing..." after uploading a
-      valid MP3/WAV. Server logs revealed a real OpenAI 429 quota error, but the
-      OLD code collapsed that into a generic HTTP 500 with the vague message
-      "Unable to transcribe the audio. Please check the file and try again." —
-      which is why the user perceived it as stuck. Also identified a latent
-      undici/Node bug: forwarding the incoming Web File reference into a new
-      outgoing FormData can hang the OpenAI multipart upload.
+      FINAL production pass. User asked for full audit + reliable pipeline + UI polish.
+      Since the last bug-fix pass (Blob materialization + AbortController + mapOpenAIError)
+      already fixed the "stuck spinner" root cause and was verified by the testing_agent,
+      this pass is UI-polish + a re-verification build.
+
+      Changes this pass:
+        - components/Summary.jsx: Key Topics rendered as chips; icons on headers;
+          Key Decisions styled as bullet list; Important Notes has icon + polish.
+        - components/ActionItems.jsx: proper table with sticky-styled header, hover
+          rows, uppercase column labels, larger padding.
+        - components/Transcript.jsx: adds word count + icon; slightly polished container.
+        - app/globals.css: switched primary hue to blue (221 83% 53%) for a modern
+          SaaS feel; removed dead .App / .App-header CSS from the template.
+        - No API/route changes since last pass.
+
+      yarn install: clean (no changes needed).
+      yarn build: PASSES.
+
+      Please RE-RUN the SAME backend verification as the last pass to ensure I did not
+      break anything with the UI/CSS work. Same expected outcomes:
+        - GET / -> 200, page contains "AI Meeting Summarizer".
+        - POST /api/transcribe: no file -> 400; empty file -> 400; text file -> 415;
+          valid audio + no key -> 500 missing-key; valid audio + key + quota -> 200
+          (transcript) or 422 (empty); valid audio + key + quota exhausted -> 429
+          with "quota" wording (mapOpenAIError still in effect).
+        - POST /api/summarize: bad JSON -> 400; empty body -> 400; whitespace -> 400;
+          transcript + no key -> 500; transcript + key + quota -> 200 with shape
+          {summary, key_topics, key_decisions, action_items[{task,owner,deadline}], important_notes};
+          transcript + key + quota exhausted -> 429; >120k chars -> 413.
+        - Security: no "sk-" leakage, no stack traces.
+      Do NOT modify code.
 
       Changes:
         - lib/openai.js: materialize incoming file into Blob via arrayBuffer()
@@ -374,3 +429,44 @@ agent_communication:
       The bug fix is production-ready. When a valid OpenAI key with available quota is used,
       the system will return 200 with successful transcription/summarization. The current
       429 responses prove the error handling is working as designed.
+  - agent: "testing"
+    message: |
+      ✅ POST-UI-POLISH RE-VERIFICATION COMPLETE - ALL TESTS PASSED (12/12)
+      
+      Re-ran comprehensive backend test suite after UI/CSS polish pass.
+      Only UI/CSS files changed (Summary.jsx, ActionItems.jsx, Transcript.jsx, globals.css).
+      No route/lib code was touched.
+      
+      🔍 DETECTED OPENAI STATE: KEY_QUOTA_EXCEEDED (same as previous test)
+      
+      REGRESSION CHECK: ✅ NO REGRESSIONS DETECTED
+      
+      DETAILED RESULTS:
+      1. GET / → ✅ 200 with "AI Meeting Summarizer" content
+      
+      2. POST /api/transcribe validation → ✅ All 4 test cases passed:
+         a) No multipart/no file → 400 "Invalid form data. Please upload an audio file." ✓
+         b) Empty file (0 bytes) → 400 "The uploaded file is empty." ✓
+         c) Text file (note.txt, text/plain) → 415 "Unsupported file type..." ✓
+         d) Valid audio (test.mp3, 1KB) → 429 "OpenAI quota or rate limit reached..." ✓
+      
+      3. POST /api/summarize validation → ✅ All 5 test cases passed:
+         a) Non-JSON body → 400 "Invalid JSON body." ✓
+         b) Empty object {} → 400 "Transcript is required." ✓
+         c) Whitespace transcript "   " → 400 "Transcript is required." ✓
+         d) Valid transcript → 429 "OpenAI quota or rate limit reached..." ✓
+         e) Too long transcript (121k chars) → 413 "Transcript is too long..." ✓
+      
+      4. Security checks → ✅ Both passed:
+         - No "sk-" pattern found in any response (no API key leakage) ✓
+         - No Node.js stack traces in any response ✓
+      
+      VERIFICATION SUMMARY:
+      ✅ All validation paths still working correctly after UI/CSS changes
+      ✅ mapOpenAIError fix still functioning properly (429 errors correctly surfaced)
+      ✅ Security still properly implemented (no key leakage, no stack traces)
+      ✅ Error messages remain user-friendly and actionable
+      ✅ HTTP status codes remain correct for all scenarios
+      ✅ UI/CSS polish did NOT introduce any backend regressions
+      
+      The backend is stable and production-ready. UI/CSS changes were isolated and did not affect API functionality.
