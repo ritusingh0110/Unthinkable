@@ -24,6 +24,7 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
+  const [dragging, setDragging] = useState(false);
 
   function validateAndSet(f) {
     setError('');
@@ -50,6 +51,14 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
     validateAndSet(f);
   }
 
+  function onDrop(e) {
+    e.preventDefault();
+    setDragging(false);
+    if (isProcessing) return;
+    const f = e.dataTransfer?.files?.[0];
+    validateAndSet(f);
+  }
+
   function clearFile() {
     setFile(null);
     setError('');
@@ -65,8 +74,8 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
   }
 
   return (
-    <Card className="border-dashed">
-      <CardContent className="p-6">
+    <Card className="shadow-sm">
+      <CardContent className="p-5 sm:p-6">
         <input
           ref={inputRef}
           type="file"
@@ -77,21 +86,39 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
         />
 
         {!file ? (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={isProcessing}
-            className="w-full flex flex-col items-center justify-center gap-3 py-10 rounded-md border-2 border-dashed border-border hover:border-primary/60 hover:bg-muted/40 transition"
+          <div
+            onDragOver={(e) => { e.preventDefault(); if (!isProcessing) setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
           >
-            <Upload className="h-8 w-8 text-muted-foreground" />
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Click to select an audio file</span>
-              <div className="mt-1">mp3, wav, m4a, webm, ogg, flac — up to 25MB</div>
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={isProcessing}
+              className={`w-full flex flex-col items-center justify-center gap-3 py-12 rounded-lg border-2 border-dashed transition ${
+                dragging
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/60 hover:bg-muted/40'
+              }`}
+              aria-label="Upload audio file"
+            >
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Upload className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-center">
+                <div className="text-sm">
+                  <span className="font-medium text-foreground">Click to upload</span>{' '}
+                  <span className="text-muted-foreground">or drag and drop</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">mp3, wav, m4a, webm, ogg, flac · up to 25MB</div>
+              </div>
+            </button>
+          </div>
         ) : (
-          <div className="flex items-center gap-3 p-4 rounded-md bg-muted/40 border">
-            <FileAudio className="h-6 w-6 text-primary shrink-0" />
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/40 border">
+            <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+              <FileAudio className="h-5 w-5 text-primary" />
+            </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{file.name}</div>
               <div className="text-xs text-muted-foreground">{humanSize(file.size)}</div>
@@ -106,8 +133,8 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
           <div className="mt-3 text-sm text-destructive">{error}</div>
         )}
 
-        <div className="mt-5 flex items-center gap-3">
-          <Button onClick={handleProcess} disabled={!file || isProcessing} className="min-w-[200px]">
+        <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <Button onClick={handleProcess} disabled={!file || isProcessing} className="sm:min-w-[220px]">
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -118,7 +145,7 @@ export default function AudioUploader({ onProcess, isProcessing, processingStage
             )}
           </Button>
           {isProcessing && (
-            <span className="text-xs text-muted-foreground">This can take up to a minute depending on audio length.</span>
+            <span className="text-xs text-muted-foreground">This can take up to a minute or two depending on audio length.</span>
           )}
         </div>
       </CardContent>

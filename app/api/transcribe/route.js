@@ -13,6 +13,19 @@ function extOf(name = '') {
   return m ? m[1] : '';
 }
 
+function mapOpenAIError(err) {
+  const raw = err?.message || '';
+  const status = err?.status;
+  if (status === 401) return { code: 401, msg: 'OpenAI rejected the API key. Please verify OPENAI_API_KEY.' };
+  if (status === 429 || /quota|rate limit|billing/i.test(raw)) {
+    return { code: 429, msg: 'OpenAI quota or rate limit reached. Please check your plan/billing and try again.' };
+  }
+  if (status === 413 || /too large/i.test(raw)) return { code: 413, msg: 'Audio file is too large for the transcription API.' };
+  if (status === 415 || /unsupported/i.test(raw)) return { code: 415, msg: 'Unsupported audio format.' };
+  if (status === 504 || /timed out/i.test(raw)) return { code: 504, msg: 'Transcription timed out. Please try a shorter recording.' };
+  return { code: 502, msg: 'Unable to transcribe the audio. Please try again in a moment.' };
+}
+
 export async function POST(request) {
   try {
     const formData = await request.formData().catch(() => null);
@@ -71,11 +84,9 @@ export async function POST(request) {
         { status: 500 }
       );
     }
-    // Log server-side, return friendly message to user
-    console.error('[/api/transcribe] error:', err?.message || err);
-    return NextResponse.json(
-      { error: 'Unable to transcribe the audio. Please check the file and try again.' },
-      { status: 500 }
-    );
+    // Log server-side (never log the key or full stack to users)
+    console.error('[/api/transcribe] error:', err?.status, err?.message || err);
+    const mapped = mapOpenAIError(err);
+    return NextResponse.json({ error: mapped.msg }, { status: mapped.code });
   }
 }

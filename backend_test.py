@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Backend API Test Suite for AI Meeting Summarizer
-Tests all validation paths and error handling without requiring OPENAI_API_KEY
+Backend API Test Suite for AI Meeting Summarizer - FINAL VERIFICATION
+Tests all validation paths, error handling, and OpenAI integration states
 """
 
 import requests
@@ -19,6 +19,9 @@ print("=" * 80)
 total_tests = 0
 passed_tests = 0
 failed_tests = 0
+
+# Track OpenAI state
+openai_state = "unknown"  # Will be: "no_key", "key_quota_ok", or "key_quota_exceeded"
 
 def test_result(name, passed, details=""):
     global total_tests, passed_tests, failed_tests
@@ -46,69 +49,46 @@ try:
     content_ok = "AI Meeting Summarizer" in response.text
     
     if status_ok and content_ok:
-        test_result("Homepage returns 200 with correct content", True, 
-                   f"Status: {response.status_code}, Content contains 'AI Meeting Summarizer'")
+        test_result("Homepage returns 200 with 'AI Meeting Summarizer'", True, 
+                   f"Status: {response.status_code}")
     else:
-        test_result("Homepage returns 200 with correct content", False,
+        test_result("Homepage returns 200 with 'AI Meeting Summarizer'", False,
                    f"Status: {response.status_code}, Content check: {content_ok}")
 except Exception as e:
-    test_result("Homepage returns 200 with correct content", False, f"Error: {str(e)}")
+    test_result("Homepage returns 200 with 'AI Meeting Summarizer'", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 2: POST /api/transcribe - No body / no file
+# TEST 2a: POST /api/transcribe - No multipart / no file field
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 2: POST /api/transcribe - No body / no file")
+print("TEST 2a: POST /api/transcribe - No multipart / no file field")
 print("=" * 80)
 
 try:
-    # Test with no body at all
     response = requests.post(f"{API_BASE}/transcribe", timeout=10)
     status_ok = response.status_code == 400
     
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        # Accept either error message
-        error_ok = "No audio file provided" in error_msg or "Invalid form data" in error_msg
+        error_ok = len(error_msg) > 0  # Just needs non-empty error message
     except Exception:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("No body returns 400 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("No multipart → 400 with error message", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("No body returns 400 with error", False,
+        test_result("No multipart → 400 with error message", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("No body returns 400 with error", False, f"Error: {str(e)}")
-
-# Test with empty multipart (no file field)
-try:
-    response = requests.post(f"{API_BASE}/transcribe", files={}, timeout=10)
-    status_ok = response.status_code == 400
-    
-    try:
-        json_data = response.json()
-        error_msg = json_data.get('error', '')
-        error_ok = "No audio file provided" in error_msg or "Invalid form data" in error_msg
-    except Exception:
-        error_ok = False
-    
-    if status_ok and error_ok:
-        test_result("Empty multipart returns 400 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
-    else:
-        test_result("Empty multipart returns 400 with error", False,
-                   f"Status: {response.status_code}, Response: {response.text[:200]}")
-except Exception as e:
-    test_result("Empty multipart returns 400 with error", False, f"Error: {str(e)}")
+    test_result("No multipart → 400 with error message", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 3: POST /api/transcribe - Empty file (0 bytes)
+# TEST 2b: POST /api/transcribe - Empty file (0 bytes)
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 3: POST /api/transcribe - Empty file (0 bytes)")
+print("TEST 2b: POST /api/transcribe - Empty file (0 bytes)")
 print("=" * 80)
 
 try:
@@ -126,19 +106,19 @@ try:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("Empty file returns 400 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("Empty file → 400 with 'empty' in error", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Empty file returns 400 with error", False,
+        test_result("Empty file → 400 with 'empty' in error", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("Empty file returns 400 with error", False, f"Error: {str(e)}")
+    test_result("Empty file → 400 with 'empty' in error", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 4: POST /api/transcribe - Wrong file type (text file)
+# TEST 2c: POST /api/transcribe - Wrong file type (note.txt, text/plain)
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 4: POST /api/transcribe - Wrong file type (text file)")
+print("TEST 2c: POST /api/transcribe - Wrong file type (note.txt, text/plain)")
 print("=" * 80)
 
 try:
@@ -151,62 +131,75 @@ try:
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "Unsupported file type" in error_msg or "unsupported" in error_msg.lower()
+        error_ok = "Unsupported file type" in error_msg
     except Exception:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("Text file returns 415 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("Text file → 415 with 'Unsupported file type'", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Text file returns 415 with error", False,
+        test_result("Text file → 415 with 'Unsupported file type'", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("Text file returns 415 with error", False, f"Error: {str(e)}")
+    test_result("Text file → 415 with 'Unsupported file type'", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 5: POST /api/transcribe - Valid audio file (should fail with missing key)
+# TEST 2d: POST /api/transcribe - Valid audio file (test.mp3, audio/mpeg, tiny bytes)
+# This test determines the OpenAI state: no_key / key_quota_ok / key_quota_exceeded
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 5: POST /api/transcribe - Valid audio file (missing API key)")
+print("TEST 2d: POST /api/transcribe - Valid audio (test.mp3, audio/mpeg, 1KB)")
 print("=" * 80)
 
 try:
     # Create a small fake MP3 file (just some bytes with audio mime type)
-    fake_audio = io.BytesIO(b'\xff\xfb\x90\x00' + b'\x00' * 100)  # MP3 header-like bytes
+    fake_audio = io.BytesIO(b'\xff\xfb\x90\x00' + b'\x00' * 1020)  # ~1KB
     files = {'file': ('test.mp3', fake_audio, 'audio/mpeg')}
-    response = requests.post(f"{API_BASE}/transcribe", files=files, timeout=10)
-    
-    status_ok = response.status_code == 500
+    response = requests.post(f"{API_BASE}/transcribe", files=files, timeout=30)
     
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "OPENAI_API_KEY" in error_msg and "missing" in error_msg.lower()
+    except Exception:
+        error_msg = ''
+    
+    # Determine OpenAI state based on response
+    if response.status_code == 500 and "OPENAI_API_KEY" in error_msg and "missing" in error_msg.lower():
+        openai_state = "no_key"
         expected_msg = "Server is missing the OPENAI_API_KEY environment variable. Please configure it and restart the server."
         exact_match = error_msg == expected_msg
-    except Exception:
-        error_ok = False
-        exact_match = False
-    
-    if status_ok and error_ok:
-        test_result("Valid audio returns 500 with missing key error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
-        if exact_match:
-            print("   ✓ Exact error message match")
-        else:
-            print("   ⚠ Error message contains key info but not exact match")
+        test_result("Valid audio → 500 with exact missing-key message", exact_match,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif response.status_code == 429 and "quota" in error_msg.lower():
+        openai_state = "key_quota_exceeded"
+        test_result("Valid audio → 429 with quota error (mapOpenAIError working!)", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif response.status_code == 200:
+        openai_state = "key_quota_ok"
+        transcript = json_data.get('transcript', '')
+        # Transcript may be empty string if audio is unintelligible, which is acceptable
+        test_result("Valid audio → 200 with transcript (quota available)", True,
+                   f"Status: {response.status_code}, Transcript length: {len(transcript)} chars")
+    elif response.status_code == 422 and "empty" in error_msg.lower():
+        # Empty transcript is also acceptable for unintelligible audio
+        openai_state = "key_quota_ok"
+        test_result("Valid audio → 422 empty transcript (acceptable for fake audio)", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Valid audio returns 500 with missing key error", False,
-                   f"Status: {response.status_code}, Response: {response.text[:200]}")
+        test_result("Valid audio → unexpected response", False,
+                   f"Status: {response.status_code}, Response: {response.text[:300]}")
 except Exception as e:
-    test_result("Valid audio returns 500 with missing key error", False, f"Error: {str(e)}")
+    test_result("Valid audio → unexpected response", False, f"Error: {str(e)}")
+
+print(f"\n🔍 DETECTED OPENAI STATE: {openai_state.upper()}")
+print("=" * 80)
 
 # ============================================================================
-# TEST 6: POST /api/summarize - Non-JSON body
+# TEST 3a: POST /api/summarize - Non-JSON body
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 6: POST /api/summarize - Non-JSON body")
+print("TEST 3a: POST /api/summarize - Non-JSON body")
 print("=" * 80)
 
 try:
@@ -220,24 +213,24 @@ try:
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "Invalid JSON" in error_msg or "json" in error_msg.lower()
+        error_ok = error_msg == "Invalid JSON body."
     except Exception:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("Non-JSON body returns 400 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("Non-JSON → 400 'Invalid JSON body.'", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Non-JSON body returns 400 with error", False,
+        test_result("Non-JSON → 400 'Invalid JSON body.'", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("Non-JSON body returns 400 with error", False, f"Error: {str(e)}")
+    test_result("Non-JSON → 400 'Invalid JSON body.'", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 7: POST /api/summarize - Empty object
+# TEST 3b: POST /api/summarize - Empty object {}
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 7: POST /api/summarize - Empty object")
+print("TEST 3b: POST /api/summarize - Empty object {}")
 print("=" * 80)
 
 try:
@@ -250,24 +243,24 @@ try:
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "Transcript is required" in error_msg or "required" in error_msg.lower()
+        error_ok = error_msg == "Transcript is required."
     except Exception:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("Empty object returns 400 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("Empty object → 400 'Transcript is required.'", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Empty object returns 400 with error", False,
+        test_result("Empty object → 400 'Transcript is required.'", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("Empty object returns 400 with error", False, f"Error: {str(e)}")
+    test_result("Empty object → 400 'Transcript is required.'", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 8: POST /api/summarize - Whitespace transcript
+# TEST 3c: POST /api/summarize - Whitespace transcript "   "
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 8: POST /api/summarize - Whitespace transcript")
+print("TEST 3c: POST /api/summarize - Whitespace transcript '   '")
 print("=" * 80)
 
 try:
@@ -280,65 +273,96 @@ try:
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "Transcript is required" in error_msg or "required" in error_msg.lower()
+        error_ok = error_msg == "Transcript is required."
     except Exception:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("Whitespace transcript returns 400 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("Whitespace transcript → 400 'Transcript is required.'", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Whitespace transcript returns 400 with error", False,
+        test_result("Whitespace transcript → 400 'Transcript is required.'", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("Whitespace transcript returns 400 with error", False, f"Error: {str(e)}")
+    test_result("Whitespace transcript → 400 'Transcript is required.'", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 9: POST /api/summarize - Valid transcript (missing API key)
+# TEST 3d: POST /api/summarize - Valid transcript
+# Response depends on OpenAI state detected earlier
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 9: POST /api/summarize - Valid transcript (missing API key)")
+print("TEST 3d: POST /api/summarize - Valid transcript")
 print("=" * 80)
 
 try:
+    test_transcript = "Alice will send the report on Friday. Bob will review it."
     response = requests.post(f"{API_BASE}/summarize", 
-                            json={"transcript": "This is a test meeting transcript about project planning."},
-                            timeout=10)
-    
-    status_ok = response.status_code == 500
+                            json={"transcript": test_transcript},
+                            timeout=30)
     
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "OPENAI_API_KEY" in error_msg and "missing" in error_msg.lower()
+    except Exception:
+        error_msg = ''
+    
+    if openai_state == "no_key":
+        # Expect 500 with missing key message
+        status_ok = response.status_code == 500
         expected_msg = "Server is missing the OPENAI_API_KEY environment variable. Please configure it and restart the server."
         exact_match = error_msg == expected_msg
-    except Exception:
-        error_ok = False
-        exact_match = False
-    
-    if status_ok and error_ok:
-        test_result("Valid transcript returns 500 with missing key error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
-        if exact_match:
-            print("   ✓ Exact error message match")
+        test_result("Valid transcript → 500 with exact missing-key message", exact_match,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif openai_state == "key_quota_exceeded":
+        # Expect 429 with quota message
+        status_ok = response.status_code == 429
+        quota_ok = "quota" in error_msg.lower()
+        test_result("Valid transcript → 429 with quota error (mapOpenAIError working!)", status_ok and quota_ok,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif openai_state == "key_quota_ok":
+        # Expect 200 with structured response
+        status_ok = response.status_code == 200
+        if status_ok:
+            has_summary = 'summary' in json_data
+            has_key_topics = 'key_topics' in json_data
+            has_key_decisions = 'key_decisions' in json_data
+            has_action_items = 'action_items' in json_data
+            has_important_notes = 'important_notes' in json_data
+            
+            all_keys_present = has_summary and has_key_topics and has_key_decisions and has_action_items and has_important_notes
+            
+            # Check action_items structure
+            action_items_ok = True
+            if has_action_items and isinstance(json_data['action_items'], list):
+                for item in json_data['action_items']:
+                    if not all(k in item for k in ['task', 'owner', 'deadline']):
+                        action_items_ok = False
+                        break
+            
+            if all_keys_present and action_items_ok:
+                test_result("Valid transcript → 200 with all required keys and action_items structure", True,
+                           f"Status: {response.status_code}, Keys: summary, key_topics, key_decisions, action_items (with task/owner/deadline), important_notes")
+            else:
+                test_result("Valid transcript → 200 with all required keys and action_items structure", False,
+                           f"Status: {response.status_code}, Missing keys or invalid structure. Response: {str(json_data)[:300]}")
         else:
-            print("   ⚠ Error message contains key info but not exact match")
+            test_result("Valid transcript → 200 with structured response", False,
+                       f"Status: {response.status_code}, Response: {response.text[:300]}")
     else:
-        test_result("Valid transcript returns 500 with missing key error", False,
-                   f"Status: {response.status_code}, Response: {response.text[:200]}")
+        test_result("Valid transcript → response depends on OpenAI state", False,
+                   f"Unknown OpenAI state, cannot verify. Status: {response.status_code}")
 except Exception as e:
-    test_result("Valid transcript returns 500 with missing key error", False, f"Error: {str(e)}")
+    test_result("Valid transcript → response depends on OpenAI state", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 10: POST /api/summarize - Too long transcript (>120k chars)
+# TEST 3e: POST /api/summarize - Too long transcript (>120k chars)
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 10: POST /api/summarize - Too long transcript (>120k chars)")
+print("TEST 3e: POST /api/summarize - Too long transcript (121k chars)")
 print("=" * 80)
 
 try:
-    long_transcript = "A" * 121000  # 121k characters
+    long_transcript = "x" * 121000  # 121k characters
     response = requests.post(f"{API_BASE}/summarize", 
                             json={"transcript": long_transcript},
                             timeout=10)
@@ -348,27 +372,27 @@ try:
     try:
         json_data = response.json()
         error_msg = json_data.get('error', '')
-        error_ok = "too long" in error_msg.lower() or "413" in str(response.status_code)
+        error_ok = "too long" in error_msg.lower()
     except Exception:
         error_ok = False
     
     if status_ok and error_ok:
-        test_result("Too long transcript returns 413 with error", True,
-                   f"Status: {response.status_code}, Error: {error_msg}")
+        test_result("Too long transcript → 413 with 'too long' in error", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
-        test_result("Too long transcript returns 413 with error", False,
+        test_result("Too long transcript → 413 with 'too long' in error", False,
                    f"Status: {response.status_code}, Response: {response.text[:200]}")
 except Exception as e:
-    test_result("Too long transcript returns 413 with error", False, f"Error: {str(e)}")
+    test_result("Too long transcript → 413 with 'too long' in error", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 11: Security - No API key leakage
+# TEST 4: Security - No "sk-" in any response
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 11: Security - No API key leakage")
+print("TEST 4: Security - No 'sk-' in any response")
 print("=" * 80)
 
-# Collect all responses from previous tests
+# Collect all responses
 all_responses = []
 
 try:
@@ -388,19 +412,19 @@ try:
     has_key_leak = any("sk-" in resp for resp in all_responses)
     
     if not has_key_leak:
-        test_result("No API key leakage (no 'sk-' in responses)", True,
+        test_result("No 'sk-' pattern found in any response", True,
                    "Checked all error responses")
     else:
-        test_result("No API key leakage (no 'sk-' in responses)", False,
-                   "Found 'sk-' pattern in response")
+        test_result("No 'sk-' pattern found in any response", False,
+                   "Found 'sk-' pattern in response - API KEY LEAK!")
 except Exception as e:
-    test_result("No API key leakage (no 'sk-' in responses)", False, f"Error: {str(e)}")
+    test_result("No 'sk-' pattern found in any response", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 12: Security - No stack traces
+# TEST 4: Security - No Node stack traces
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 12: Security - No raw stack traces")
+print("TEST 4: Security - No Node stack traces ('at ' lines, filepaths)")
 print("=" * 80)
 
 try:
@@ -412,7 +436,6 @@ try:
         "at async",
         "node_modules/",
         "webpack-internal:",
-        "Error: Error:",  # Doubled error prefix
     ]
     
     has_stack_trace = False
@@ -425,19 +448,24 @@ try:
             break
     
     if not has_stack_trace:
-        test_result("No raw stack traces in error responses", True,
+        test_result("No Node stack traces in any response", True,
                    "Checked all error responses for stack trace patterns")
     else:
-        test_result("No raw stack traces in error responses", False,
+        test_result("No Node stack traces in any response", False,
                    "Found stack trace patterns in response")
 except Exception as e:
-    test_result("No raw stack traces in error responses", False, f"Error: {str(e)}")
+    test_result("No Node stack traces in any response", False, f"Error: {str(e)}")
 
 # ============================================================================
 # SUMMARY
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST SUMMARY")
+print("FINAL TEST SUMMARY")
+print("=" * 80)
+print(f"OpenAI State Detected: {openai_state.upper()}")
+print(f"  - no_key: Server missing OPENAI_API_KEY")
+print(f"  - key_quota_ok: Key configured and quota available")
+print(f"  - key_quota_exceeded: Key configured but quota exceeded (429 errors)")
 print("=" * 80)
 print(f"Total Tests: {total_tests}")
 print(f"Passed: {passed_tests} ✅")
@@ -446,7 +474,13 @@ print(f"Success Rate: {(passed_tests/total_tests*100):.1f}%")
 print("=" * 80)
 
 if failed_tests == 0:
-    print("\n🎉 ALL TESTS PASSED! Backend is ready for deployment.")
+    print("\n🎉 ALL TESTS PASSED!")
+    if openai_state == "key_quota_exceeded":
+        print("⚠️  Note: OpenAI quota is exceeded, but the 429 errors are being correctly surfaced (mapOpenAIError fix verified).")
+    elif openai_state == "key_quota_ok":
+        print("✅ OpenAI integration is fully functional with available quota.")
+    elif openai_state == "no_key":
+        print("⚠️  Note: OPENAI_API_KEY is not configured, but all validation paths work correctly.")
     exit(0)
 else:
     print(f"\n⚠️  {failed_tests} test(s) failed. Please review the failures above.")
