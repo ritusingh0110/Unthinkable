@@ -18,16 +18,21 @@ export default function Transcript({ text }) {
   }
 
   const wordCount = text.trim().split(/\s+/).length;
+  const readTime = Math.max(1, Math.round(wordCount / 200));
 
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <div>
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileAudio className="h-4 w-4 text-primary" />
-            Full Transcript
-          </CardTitle>
-          <div className="mt-1 text-xs text-muted-foreground">{wordCount.toLocaleString()} words</div>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+            <FileAudio className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <CardTitle className="text-base">Full Transcript</CardTitle>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {wordCount.toLocaleString()} words · ~{readTime} min read
+            </div>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={copy} aria-label={copied ? 'Copied' : 'Copy transcript'}>
           {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
@@ -35,7 +40,7 @@ export default function Transcript({ text }) {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="max-h-80 overflow-y-auto rounded-md border bg-muted/20 p-4 text-sm leading-relaxed whitespace-pre-wrap">
+        <div className="pretty-scroll max-h-80 overflow-y-auto rounded-xl border bg-muted/20 p-4 sm:p-5 text-[13.5px] leading-relaxed whitespace-pre-wrap">
           {text}
         </div>
       </CardContent>

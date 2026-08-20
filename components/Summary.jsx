@@ -6,29 +6,35 @@ import { FileText, ListChecks, Lightbulb, StickyNote } from 'lucide-react';
 
 export default function Summary({ summary, key_topics = [], key_decisions = [], important_notes = [] }) {
   return (
-    <div className="grid gap-4">
-      <Card className="border-primary/10">
+    <div className="grid gap-5">
+      {/* Featured summary */}
+      <Card className="relative overflow-hidden border-primary/20 shadow-sm">
+        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent" />
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            Meeting Summary
-          </CardTitle>
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary grid place-items-center">
+              <FileText className="h-4 w-4" />
+            </div>
+            <CardTitle className="text-base">Meeting Summary</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+          <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/90">
             {summary || 'No summary generated.'}
           </p>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Card className="shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-primary" />
-              Key Topics
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 grid place-items-center">
+                <Lightbulb className="h-4 w-4" />
+              </div>
+              <CardTitle className="text-base">Key Topics</CardTitle>
               {key_topics.length > 0 && <Badge variant="secondary" className="ml-1">{key_topics.length}</Badge>}
-            </CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             {key_topics.length ? (
@@ -36,7 +42,7 @@ export default function Summary({ summary, key_topics = [], key_decisions = [], 
                 {key_topics.map((t, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium text-foreground"
+                    className="inline-flex items-center rounded-full border bg-muted/40 hover:bg-muted/60 transition-colors px-3 py-1 text-xs font-medium text-foreground/90"
                   >
                     {t}
                   </span>
@@ -48,20 +54,22 @@ export default function Summary({ summary, key_topics = [], key_decisions = [], 
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-primary" />
-              Key Decisions
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 grid place-items-center">
+                <ListChecks className="h-4 w-4" />
+              </div>
+              <CardTitle className="text-base">Key Decisions</CardTitle>
               {key_decisions.length > 0 && <Badge variant="secondary" className="ml-1">{key_decisions.length}</Badge>}
-            </CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             {key_decisions.length ? (
-              <ul className="space-y-2 text-sm">
+              <ul className="space-y-2.5 text-sm">
                 {key_decisions.map((t, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <li key={i} className="flex gap-2.5">
+                    <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                     <span className="leading-relaxed">{t}</span>
                   </li>
                 ))}
@@ -74,18 +82,20 @@ export default function Summary({ summary, key_topics = [], key_decisions = [], 
       </div>
 
       {important_notes.length > 0 && (
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <StickyNote className="h-4 w-4 text-primary" />
-              Important Notes
-            </CardTitle>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-600 grid place-items-center">
+                <StickyNote className="h-4 w-4" />
+              </div>
+              <CardTitle className="text-base">Important Notes</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2.5 text-sm">
               {important_notes.map((t, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                <li key={i} className="flex gap-2.5">
+                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
                   <span className="leading-relaxed">{t}</span>
                 </li>
               ))}

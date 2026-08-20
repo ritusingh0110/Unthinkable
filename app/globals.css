@@ -10,6 +10,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
 }
 
 code {
@@ -42,7 +43,7 @@ code {
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -95,4 +96,43 @@ code {
   body {
     @apply bg-background text-foreground;
   }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+  }
 }
+
+/* Subtle grid backdrop for the hero */
+.bg-grid-slate {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.55) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse at top, black 30%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at top, black 30%, transparent 70%);
+}
+
+/* Fade + rise entrance for result sections */
+@keyframes fade-rise {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-rise { animation: fade-rise 0.35s ease-out both; }
+
+/* Slow subtle pulse used on active step */
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.animate-soft-pulse { animation: soft-pulse 1.6s ease-in-out infinite; }
+
+/* Nice scrollbars inside transcript panel */
+.pretty-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.pretty-scroll::-webkit-scrollbar-track { background: transparent; }
+.pretty-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.pretty-scroll::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); background-clip: padding-box; }

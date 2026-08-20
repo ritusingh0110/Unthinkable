@@ -173,6 +173,58 @@ backend:
           CRITICAL: Real audio file correctly handled. Response body: {"error":"OpenAI quota or rate limit reached. Please check your plan/billing and try again."}
           This is ACCEPTABLE outcome C (quota exhausted). No code regression. mapOpenAIError working correctly.
           Security verified: No "sk-" in response, no stack traces. Server logs show proper error handling without key leakage.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ SECOND UI-POLISH REGRESSION RE-VERIFICATION PASSED (14/14 tests):
+          Re-ran comprehensive backend test suite after second UI/CSS polish pass.
+          
+          CRITICAL ISSUE DETECTED & RESOLVED:
+          - Initial test run failed with webpack build corruption (Error: Cannot find module './331.js')
+          - All /api/transcribe endpoints returned 500 errors with exposed stack traces
+          - Root cause: Corrupted .next build directory (likely from hot-reload/incremental build)
+          - Resolution: Cleaned .next directory and ran full production build (yarn build)
+          - After rebuild: ALL 14 TESTS PASSED with NO REGRESSIONS
+          
+          🔍 DETECTED OPENAI STATE: KEY_QUOTA_EXCEEDED (same as previous tests)
+          
+          DETAILED RESULTS AFTER REBUILD:
+          1. GET / → ✅ 200 with "AI Meeting Summarizer" content
+          
+          2. POST /api/transcribe validation → ✅ All 5 test cases passed:
+             a) No multipart/no file → 400 "Invalid form data. Please upload an audio file." ✓
+             b) Empty file (0 bytes) → 400 "The uploaded file is empty." ✓
+             c) Text file (note.txt, text/plain) → 415 "Unsupported file type..." ✓
+             d) Valid audio (test.mp3, 1KB fake) → 429 "OpenAI quota or rate limit reached..." ✓
+             e) REAL AUDIO (sample.mp3, 52KB) → 429 "OpenAI quota or rate limit reached..." ✓
+          
+          3. POST /api/summarize validation → ✅ All 6 test cases passed:
+             a) Non-JSON body → 400 "Invalid JSON body." ✓
+             b) Empty object {} → 400 "Transcript is required." ✓
+             c) Whitespace transcript "   " → 400 "Transcript is required." ✓
+             d) Valid transcript (short test) → 429 "OpenAI quota or rate limit reached..." ✓
+             e) REAL TRANSCRIPT (meeting content) → 429 "OpenAI quota or rate limit reached..." ✓
+             f) Too long transcript (121k chars) → 413 "Transcript is too long..." ✓
+          
+          4. Security checks → ✅ Both passed:
+             - No "sk-" pattern found in any response (no API key leakage) ✓
+             - No Node.js stack traces in any response ✓
+          
+          VERIFICATION SUMMARY:
+          ✅ NO REGRESSIONS after UI/CSS polish pass (after rebuild)
+          ✅ All validation paths working correctly
+          ✅ mapOpenAIError fix still functioning properly (429 errors correctly surfaced)
+          ✅ Security properly implemented (no key leakage, no stack traces)
+          ✅ Error messages user-friendly and actionable
+          ✅ HTTP status codes correct for all scenarios
+          ✅ Real audio file (52KB) correctly handled with 429 quota error
+          ✅ Real transcript correctly handled with 429 quota error
+          
+          IMPORTANT NOTE:
+          The UI polish pass did NOT introduce any backend code issues. The initial test
+          failure was due to a corrupted Next.js build cache, which is a common issue in
+          development mode with hot-reload. A clean production build resolved all issues.
+          The backend code remains stable and production-ready.
 
   - task: "POST /api/summarize validation and GPT structured output"
     implemented: true
@@ -190,6 +242,39 @@ backend:
           uses gpt-4o-mini with response_format=json_schema (strict) and falls back
           to json_object automatically if the model rejects strict schema. Returns
           normalized shape: {summary, key_topics[], key_decisions[], action_items[{task,owner,deadline}], important_notes[]}.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ SECOND UI-POLISH REGRESSION RE-VERIFICATION PASSED (14/14 tests):
+          Re-ran comprehensive backend test suite after second UI/CSS polish pass.
+          
+          CRITICAL ISSUE DETECTED & RESOLVED:
+          - Initial test run failed with webpack build corruption (Error: Cannot find module './331.js')
+          - Root cause: Corrupted .next build directory (likely from hot-reload/incremental build)
+          - Resolution: Cleaned .next directory and ran full production build (yarn build)
+          - After rebuild: ALL 14 TESTS PASSED with NO REGRESSIONS
+          
+          🔍 DETECTED OPENAI STATE: KEY_QUOTA_EXCEEDED (same as previous tests)
+          
+          DETAILED RESULTS AFTER REBUILD:
+          POST /api/summarize validation → ✅ All 6 test cases passed:
+          - Non-JSON body → 400 "Invalid JSON body." ✓
+          - Empty object {} → 400 "Transcript is required." ✓
+          - Whitespace transcript "   " → 400 "Transcript is required." ✓
+          - Valid transcript (short test) → 429 "OpenAI quota or rate limit reached..." ✓
+          - REAL TRANSCRIPT (meeting content) → 429 "OpenAI quota or rate limit reached..." ✓
+          - Too long transcript (121k chars) → 413 "Transcript is too long..." ✓
+          
+          VERIFICATION SUMMARY:
+          ✅ NO REGRESSIONS after UI/CSS polish pass (after rebuild)
+          ✅ All validation paths working correctly
+          ✅ mapOpenAIError fix still functioning properly (429 errors correctly surfaced)
+          ✅ Security properly implemented (no key leakage, no stack traces)
+          ✅ Real transcript correctly handled with 429 quota error
+          
+          The UI polish pass did NOT introduce any backend code issues. The initial test
+          failure was due to a corrupted Next.js build cache. A clean production build
+          resolved all issues. The backend code remains stable and production-ready.
           Missing key returns 500 with friendly message.
       - working: true
         agent: "testing"
@@ -209,6 +294,29 @@ backend:
           - Empty object {} → 400 "Transcript is required." ✓
           - Whitespace transcript "   " → 400 "Transcript is required." ✓
           - Valid transcript → 429 "OpenAI quota or rate limit reached..." ✓
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ SECOND UI-POLISH REGRESSION RE-VERIFICATION PASSED (2/2 security tests):
+          Re-ran comprehensive security checks after second UI/CSS polish pass.
+          
+          CRITICAL ISSUE DETECTED & RESOLVED:
+          - Initial test run failed with exposed stack traces due to webpack build corruption
+          - After cleaning .next directory and rebuilding: ALL SECURITY TESTS PASSED
+          
+          DETAILED RESULTS AFTER REBUILD:
+          - No "sk-" pattern found in any response (verified via grep on all responses) ✓
+          - No Node.js stack traces in any response ✓
+          
+          VERIFICATION SUMMARY:
+          ✅ NO REGRESSIONS after UI/CSS polish pass (after rebuild)
+          ✅ Security properly implemented - no key leakage, no stack traces
+          ✅ Server logs show proper error handling without key exposure
+          ✅ All error messages are user-friendly without revealing internal details
+          
+          The UI polish pass did NOT introduce any security issues. The initial test
+          failure was due to a corrupted Next.js build cache. A clean production build
+          resolved all issues. Security remains production-ready.
           - Too long transcript (121k chars) → 413 "Transcript is too long..." ✓
           
           CRITICAL: mapOpenAIError fix VERIFIED! With OPENAI_API_KEY configured but quota
@@ -328,8 +436,17 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      User requested a real E2E test after configuring OPENAI_API_KEY via the
-      Emergent env-var panel. Verified:
+      Pure UI polish pass. NO backend, route, lib, env, or dependency changes.
+      Files touched (frontend only):
+        - app/globals.css (design tokens + subtle keyframes + grid backdrop)
+        - app/page.js (nav bar, richer hero, feature bullets w/ icons, animated result reveal)
+        - components/AudioUploader.jsx (larger dropzone, format badges, drag state)
+        - components/ProcessingSteps.jsx (elevated step chips, progress bar, hints)
+        - components/Summary.jsx (featured summary card, colored icon tiles, chips)
+        - components/ActionItems.jsx (styled table, avatar-initial for owner, date pill)
+        - components/Transcript.jsx (word count + read time, pretty scrollbar)
+      yarn build PASSES.
+      Please run the SAME backend verification suite again to confirm no regressions.
         - /app/.env has OPENAI_API_KEY set (length 164, project key format).
         - .env is git-ignored (confirmed via `git check-ignore -v .env`).
         - nextjs restarted; homepage returns 200.
@@ -607,3 +724,73 @@ agent_communication:
       ✅ UI/CSS polish did NOT introduce any backend regressions
       
       The backend is stable and production-ready. UI/CSS changes were isolated and did not affect API functionality.
+
+  - agent: "testing"
+    message: |
+      ✅ SECOND UI-POLISH REGRESSION RE-VERIFICATION COMPLETE - ALL TESTS PASSED (14/14)
+      
+      Re-ran comprehensive backend test suite after second UI/CSS polish pass.
+      Only UI/CSS files changed (globals.css, page.js, AudioUploader.jsx, ProcessingSteps.jsx,
+      Summary.jsx, ActionItems.jsx, Transcript.jsx). No route/lib/env code was touched.
+      
+      🔍 DETECTED OPENAI STATE: KEY_QUOTA_EXCEEDED (same as previous tests)
+      
+      CRITICAL ISSUE DETECTED & RESOLVED:
+      - Initial test run: 8/14 tests FAILED with webpack build corruption
+      - Error: "Cannot find module './331.js'" in webpack-runtime.js
+      - All /api/transcribe endpoints returned 500 errors with exposed stack traces
+      - Root cause: Corrupted .next build directory (likely from hot-reload/incremental build)
+      - Resolution: Cleaned .next directory and ran full production build (yarn build)
+      - After rebuild: ALL 14 TESTS PASSED with ZERO REGRESSIONS
+      
+      DETAILED RESULTS AFTER REBUILD:
+      1. GET / → ✅ 200 with "AI Meeting Summarizer" content
+      
+      2. POST /api/transcribe validation → ✅ All 5 test cases passed:
+         a) No multipart/no file → 400 "Invalid form data. Please upload an audio file." ✓
+         b) Empty file (0 bytes) → 400 "The uploaded file is empty." ✓
+         c) Text file (note.txt, text/plain) → 415 "Unsupported file type..." ✓
+         d) Valid audio (test.mp3, 1KB fake) → 429 "OpenAI quota or rate limit reached..." ✓
+         e) REAL AUDIO (sample.mp3, 52KB) → 429 "OpenAI quota or rate limit reached..." ✓
+      
+      3. POST /api/summarize validation → ✅ All 6 test cases passed:
+         a) Non-JSON body → 400 "Invalid JSON body." ✓
+         b) Empty object {} → 400 "Transcript is required." ✓
+         c) Whitespace transcript "   " → 400 "Transcript is required." ✓
+         d) Valid transcript (short test) → 429 "OpenAI quota or rate limit reached..." ✓
+         e) REAL TRANSCRIPT (meeting content) → 429 "OpenAI quota or rate limit reached..." ✓
+         f) Too long transcript (121k chars) → 413 "Transcript is too long..." ✓
+      
+      4. Security checks → ✅ Both passed:
+         - No "sk-" pattern found in any response (no API key leakage) ✓
+         - No Node.js stack traces in any response ✓
+      
+      VERIFICATION SUMMARY:
+      ✅ Homepage working (200 with correct content)
+      ✅ Real audio file (52KB) correctly handled with 429 quota error
+      ✅ Real transcript correctly handled with 429 quota error
+      ✅ All validation paths working correctly (no regressions)
+      ✅ mapOpenAIError fix verified - 429 errors correctly surfaced with clear messages
+      ✅ Security properly implemented - no key leakage, no stack traces
+      ✅ Error messages are user-friendly and actionable
+      ✅ HTTP status codes are correct for all scenarios
+      
+      OPENAI STATE EXPLANATION:
+      The OpenAI API key IS configured correctly in /app/.env. The 429 responses
+      indicate the account has exceeded its quota, which is the expected behavior
+      for free/trial keys or accounts that have hit their usage limits. This is
+      NOT a code issue - the system is correctly detecting and reporting the quota
+      state. When quota becomes available, the same endpoints will return 200 with
+      successful transcription/summarization.
+      
+      REGRESSIONS vs PRIOR PASS: ZERO (after rebuild)
+      
+      IMPORTANT NOTE:
+      The UI polish pass did NOT introduce any backend code issues. The initial test
+      failure was due to a corrupted Next.js build cache, which is a common issue in
+      development mode with hot-reload. A clean production build resolved all issues.
+      The backend is stable and production-ready.
+      
+      RECOMMENDATION:
+      For production deployments, always run a clean build (rm -rf .next && yarn build)
+      to avoid webpack module resolution issues from incremental builds.
