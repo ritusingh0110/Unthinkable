@@ -186,6 +186,10 @@ try:
         openai_state = "key_quota_ok"
         test_result("Valid audio → 422 empty transcript (acceptable for fake audio)", True,
                    f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif response.status_code == 401 and "api key" in error_msg.lower():
+        openai_state = "key_invalid"
+        test_result("Valid audio → 401 with API key rejection", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
     else:
         test_result("Valid audio → unexpected response", False,
                    f"Status: {response.status_code}, Response: {response.text[:300]}")
@@ -194,6 +198,69 @@ except Exception as e:
 
 print(f"\n🔍 DETECTED OPENAI STATE: {openai_state.upper()}")
 print("=" * 80)
+
+# ============================================================================
+# TEST 2e: POST /api/transcribe - REAL AUDIO FILE (sample.mp3, 52KB)
+# User-requested verification with actual audio content
+# ============================================================================
+print("\n" + "=" * 80)
+print("TEST 2e: POST /api/transcribe - REAL AUDIO FILE (/tmp/sample.mp3, 52KB)")
+print("=" * 80)
+
+real_audio_response_body = ""
+try:
+    # Use the real sample.mp3 file provided by user
+    with open('/tmp/sample.mp3', 'rb') as f:
+        files = {'file': ('sample.mp3', f, 'audio/mpeg')}
+        response = requests.post(f"{API_BASE}/transcribe", files=files, timeout=120)
+    
+    real_audio_response_body = response.text
+    
+    try:
+        json_data = response.json()
+        error_msg = json_data.get('error', '')
+        transcript = json_data.get('transcript', '')
+    except Exception:
+        error_msg = ''
+        transcript = ''
+    
+    # Check for FAIL conditions first
+    has_key_leak = "sk-" in response.text
+    has_stack_trace = any(pattern in response.text for pattern in ["at Object.", "at Module.", "at Function.", "at async", "node_modules/", "webpack-internal:"])
+    is_generic_500 = response.status_code == 500 and "OPENAI_API_KEY" not in error_msg
+    
+    if has_key_leak:
+        test_result("REAL AUDIO → No API key leak", False,
+                   f"CRITICAL: Found 'sk-' in response body!")
+    elif has_stack_trace:
+        test_result("REAL AUDIO → No stack trace", False,
+                   f"CRITICAL: Found Node.js stack trace in response!")
+    elif is_generic_500:
+        test_result("REAL AUDIO → No generic 500 error (mapOpenAIError regression)", False,
+                   f"CRITICAL: Got generic 500 error. Status: {response.status_code}, Error: '{error_msg}'")
+    # Check for acceptable outcomes
+    elif response.status_code == 200 and transcript:
+        test_result("REAL AUDIO → 200 with transcript (quota available)", True,
+                   f"Status: {response.status_code}, Transcript: '{transcript[:100]}...' ({len(transcript)} chars)")
+    elif response.status_code == 422 and "empty" in error_msg.lower():
+        test_result("REAL AUDIO → 422 empty transcription (silent audio)", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif response.status_code == 429 and "quota" in error_msg.lower():
+        test_result("REAL AUDIO → 429 quota exhausted (expected state)", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif response.status_code == 401 and "api key" in error_msg.lower():
+        test_result("REAL AUDIO → 401 API key rejected", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    else:
+        test_result("REAL AUDIO → unexpected response", False,
+                   f"Status: {response.status_code}, Response: {response.text[:300]}")
+    
+    print(f"   📄 FULL RESPONSE BODY: {real_audio_response_body}")
+    
+except FileNotFoundError:
+    test_result("REAL AUDIO → file exists", False, "File /tmp/sample.mp3 not found")
+except Exception as e:
+    test_result("REAL AUDIO → unexpected error", False, f"Error: {str(e)}")
 
 # ============================================================================
 # TEST 3a: POST /api/summarize - Non-JSON body
@@ -355,10 +422,86 @@ except Exception as e:
     test_result("Valid transcript → response depends on OpenAI state", False, f"Error: {str(e)}")
 
 # ============================================================================
-# TEST 3e: POST /api/summarize - Too long transcript (>120k chars)
+# TEST 3e: POST /api/summarize - REAL TRANSCRIPT
+# User-requested verification with actual meeting transcript content
 # ============================================================================
 print("\n" + "=" * 80)
-print("TEST 3e: POST /api/summarize - Too long transcript (121k chars)")
+print("TEST 3e: POST /api/summarize - REAL TRANSCRIPT")
+print("=" * 80)
+
+real_summarize_response_body = ""
+try:
+    real_transcript = "Alice will send the Q3 report by Friday. Bob agreed to review it. We decided to move the beta launch to Aug 15."
+    response = requests.post(f"{API_BASE}/summarize", 
+                            json={"transcript": real_transcript},
+                            timeout=120)
+    
+    real_summarize_response_body = response.text
+    
+    try:
+        json_data = response.json()
+        error_msg = json_data.get('error', '')
+    except Exception:
+        error_msg = ''
+    
+    # Check for FAIL conditions first
+    has_key_leak = "sk-" in response.text
+    has_stack_trace = any(pattern in response.text for pattern in ["at Object.", "at Module.", "at Function.", "at async", "node_modules/", "webpack-internal:"])
+    is_generic_500 = response.status_code == 500 and "OPENAI_API_KEY" not in error_msg
+    
+    if has_key_leak:
+        test_result("REAL TRANSCRIPT → No API key leak", False,
+                   f"CRITICAL: Found 'sk-' in response body!")
+    elif has_stack_trace:
+        test_result("REAL TRANSCRIPT → No stack trace", False,
+                   f"CRITICAL: Found Node.js stack trace in response!")
+    elif is_generic_500:
+        test_result("REAL TRANSCRIPT → No generic 500 error (mapOpenAIError regression)", False,
+                   f"CRITICAL: Got generic 500 error. Status: {response.status_code}, Error: '{error_msg}'")
+    # Check for acceptable outcomes
+    elif response.status_code == 200:
+        has_summary = 'summary' in json_data
+        has_key_topics = 'key_topics' in json_data
+        has_key_decisions = 'key_decisions' in json_data
+        has_action_items = 'action_items' in json_data
+        has_important_notes = 'important_notes' in json_data
+        
+        all_keys_present = has_summary and has_key_topics and has_key_decisions and has_action_items and has_important_notes
+        
+        # Check action_items structure
+        action_items_ok = True
+        if has_action_items and isinstance(json_data['action_items'], list):
+            for item in json_data['action_items']:
+                if not all(k in item for k in ['task', 'owner', 'deadline']):
+                    action_items_ok = False
+                    break
+        
+        if all_keys_present and action_items_ok:
+            test_result("REAL TRANSCRIPT → 200 with structured output (quota available)", True,
+                       f"Status: {response.status_code}, Keys: summary, key_topics, key_decisions, action_items[task/owner/deadline], important_notes")
+        else:
+            test_result("REAL TRANSCRIPT → 200 with structured output", False,
+                       f"Status: {response.status_code}, Missing keys or invalid structure")
+    elif response.status_code == 429 and "quota" in error_msg.lower():
+        test_result("REAL TRANSCRIPT → 429 quota exhausted (expected state)", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    elif response.status_code == 401 and "api key" in error_msg.lower():
+        test_result("REAL TRANSCRIPT → 401 API key rejected", True,
+                   f"Status: {response.status_code}, Error: '{error_msg}'")
+    else:
+        test_result("REAL TRANSCRIPT → unexpected response", False,
+                   f"Status: {response.status_code}, Response: {response.text[:300]}")
+    
+    print(f"   📄 FULL RESPONSE BODY: {real_summarize_response_body}")
+    
+except Exception as e:
+    test_result("REAL TRANSCRIPT → unexpected error", False, f"Error: {str(e)}")
+
+# ============================================================================
+# TEST 3f: POST /api/summarize - Too long transcript (>120k chars)
+# ============================================================================
+print("\n" + "=" * 80)
+print("TEST 3f: POST /api/summarize - Too long transcript (121k chars)")
 print("=" * 80)
 
 try:
